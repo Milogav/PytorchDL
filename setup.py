@@ -12,7 +12,7 @@ def get_requirements():
 
     
 setuptools.setup(
-    name="PytorchDL",
+    name="pytorchDL",
     version="0.1",
     author="Milogav",
     description="Package containing network definitions and utilities for pytorch deep learning framework",
