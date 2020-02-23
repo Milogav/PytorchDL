@@ -6,18 +6,20 @@ from .utils.misc import get_current_time
 import tensorflow as tf
 from tensorboard import program
 import torch
+import numpy as np
 
 
 class TrainerBase:
 
-    def __init__(self, out_dir, batch_size, max_epochs, checkpoint_interval, log_interval, **kwargs):
+    def __init__(self, out_dir, batch_size, max_epochs, train_steps_per_epoch, val_steps_per_epoch, log_interval, **kwargs):
 
         """
         Setup the trainer configuration
         :param out_dir: main output directory where logs and checkpoints will be saved
         :param batch_size:
         :param max_epochs: maximum training epoch number
-        :param checkpoint_interval: train steps interval to save a checkpoint and run validation
+        :param train_steps_per_epoch: train steps per epoch
+        :param val_steps_per_epoch: validation steps per epoch
         :param log_interval: train/val steps between logs
         :param kwargs: any additional configuration arguments
         :return:
@@ -28,7 +30,8 @@ class TrainerBase:
                     'checkpoint_dir': os.path.join(out_dir, 'checkpoints'),
                     'batch_size': batch_size,
                     'max_epochs': max_epochs,
-                    'checkpoint_interval': checkpoint_interval, # train steps to run validation and save checkpoint
+                    'train_steps_per_epoch': train_steps_per_epoch,
+                    'val_steps_per_epoch': val_steps_per_epoch,
                     'log_interval': log_interval}
 
         os.makedirs(self.cfg['log_dir'], exist_ok=True)
@@ -38,7 +41,7 @@ class TrainerBase:
         self.state = {'epoch': 0,
                       'train_step': 0,
                       'val_step': 0,
-                      'best_val_loss': 1e100}
+                      'best_val_loss': np.inf}
 
         self.extra = {}
         self.summary_writer = None
