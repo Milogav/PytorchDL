@@ -2,7 +2,8 @@ import numpy as np
 import cv2
 
 
-def normalize(img, min_val=0, max_val=1):
+def normalize(img, min_val=0.0, max_val=1.0):
+    img = img.astype(float)
     return (img - img.min()) * (max_val - min_val) / (img.max() - img.min()) + min_val
 
 
