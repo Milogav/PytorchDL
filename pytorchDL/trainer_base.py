@@ -121,6 +121,11 @@ class TrainerBase:
         return last_checkpoint_name
 
     def save_checkpoint(self, name):
+        """Saves a generic checkpoint dict to the output checkpoint directory. If working with custom checkpoints,
+        this method must be overridden in the children class that inherits from TrainerBase
+
+        :param name: output checkpoint filename without extension
+        """
 
         print('\tSaving checkpoint { %s } in %s' % (name, self.cfg['checkpoint_dir']))
         checkpoint = {
@@ -139,6 +144,11 @@ class TrainerBase:
             fp.write(name + '.pth')
 
     def load_checkpoint(self, ckpt_path):
+        """Loads a generic checkpoint. If working with custom checkpoints, this method must be overridden
+        in the children class that inherits from TrainerBase
+
+        :param ckpt_path: path to the checkpoint file to be loaded
+        """
 
         print('\tLoading checkpoint from: %s' % ckpt_path)
         checkpoint = torch.load(ckpt_path)
