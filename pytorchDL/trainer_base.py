@@ -113,7 +113,7 @@ class TrainerBase:
         info_last_ckpt = os.path.join(self.cfg['checkpoint_dir'], 'last_checkpoint.txt')
         try:
             with open(info_last_ckpt, 'r') as fp:
-                last_checkpoint_name = fp.read()
+                last_checkpoint_name = fp.read().strip()
         except FileNotFoundError:
             print('"last_checkpoint.txt" not found in checkpoint directory: %s' % self.cfg['checkpoint_dir'])
             last_checkpoint_name = None
