@@ -81,7 +81,7 @@ class TrainerBase:
         Launch tensorboard in background to locally inspect the created summary under a specified port
         """
         self._tb = program.TensorBoard()
-        self._tb.configure(argv=[None, '--logdir', self.cfg['summary_dir'], '--port', str(port)])
+        self._tb.configure(argv=[None, '--logdir', os.path.dirname(self.cfg['summary_dir']), '--port', str(port)])
         self.extra['tensorboard_url'] = self._tb.launch()
         self.print_tensorboard_url()
 

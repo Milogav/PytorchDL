@@ -7,7 +7,7 @@ def normalize(img, min_val=0.0, max_val=1.0):
     return (img - img.min()) * (max_val - min_val) / (img.max() - img.min()) + min_val
 
 
-def normalize_per_channel(img, min_val=0, max_val=1):
+def normalize_per_channel(img, min_val=0.0, max_val=1.0):
     ch = img.shape[-1]
     norm_img = np.concatenate([normalize(img[..., i], min_val, max_val) for i in range(ch)], axis=-1)
     return norm_img
