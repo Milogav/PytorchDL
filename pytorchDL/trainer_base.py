@@ -96,7 +96,7 @@ class TrainerBase:
             'type': type of data ('scalar' or 'image')
             'name': the name of the log in which this new data will be included
             'stage': 'train', 'val', 'test'
-            'data': numpy array or torch tensor representing the data. If image data, use NCHW format
+            'data': numpy array or torch tensor representing the data. If image data, use NCHW format, float type and intensity range between [0, 1]
 
         :param log_data: list of dicts, each one containing a data to be log. This dict must have 'type', 'name', 'stage' and 'data' fields
         """
