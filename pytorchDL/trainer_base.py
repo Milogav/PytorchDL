@@ -3,11 +3,14 @@ import json
 
 from .utils.misc import get_current_time
 
-import tensorflow as tf
 from tensorboard import program
 import torch
 import numpy as np
 
+# import config tensorflow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import tensorflow as tf
+tf.config.set_visible_devices([], 'GPU')
 
 class TrainerBase:
 
