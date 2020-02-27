@@ -3,14 +3,12 @@ import json
 
 from .utils.misc import get_current_time
 
-from tensorboard import program
 import torch
+from torch.utils.tensorboard import SummaryWriter
+from tensorboard import program
+
 import numpy as np
 
-# import config tensorflow
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import tensorflow as tf
-tf.config.set_visible_devices([], 'GPU')
 
 class TrainerBase:
 
@@ -75,7 +73,7 @@ class TrainerBase:
         """
 
         self.cfg['summary_dir'] = os.path.join(self.cfg['log_dir'], get_current_time())
-        self.summary_writer = tf.summary.create_file_writer(self.cfg['summary_dir'], flush_millis=10000)
+        self.summary_writer = SummaryWriter(self.cfg['summary_dir'], flush_secs=30)
         if launch_tensorboard:
             self.launch_tensorboard()
 
@@ -91,26 +89,24 @@ class TrainerBase:
     def print_tensorboard_url(self):
         print('\n\nTensorboard url: %s\n\n' % self.extra.get('tensorboard_url', 'NOT_CREATED'))
 
-    def log_to_tensorboard(self, log_data, max_images=1):
+    def log_to_tensorboard(self, log_data):
         """
         Log a list of data to tensorboard. Step is automatically determined from the trainer current state.
         Each piece of data to be logged must be defined as a dict, with fields:
             'type': type of data ('scalar' or 'image')
             'name': the name of the log in which this new data will be included
             'stage': 'train', 'val', 'test'
-            'data': numpy array or tensor representing the data
+            'data': numpy array or torch tensor representing the data. If image data, use NCHW format
 
         :param log_data: list of dicts, each one containing a data to be log. This dict must have 'type', 'name', 'stage' and 'data' fields
-        :param max_images: maximum number of images to output at each log step
         """
 
-        with self.summary_writer.as_default():
-            for data_dict in log_data:
-                step = self.state[data_dict['stage'].lower() + '_step']
-                if data_dict['type'] == 'scalar':
-                    tf.summary.scalar(data_dict['name'], data_dict['data'], step=step)
-                elif data_dict['type'] == 'image':
-                    tf.summary.image(data_dict['name'],  data_dict['data'], step=step, max_outputs=max_images)
+        for data_dict in log_data:
+            step = self.state[data_dict['stage'].lower() + '_step']
+            if data_dict['type'] == 'scalar':
+                self.summary_writer.add_scalar(tag=data_dict['name'], scalar_value=data_dict['data'], global_step=step)
+            elif data_dict['type'] == 'image':
+                self.summary_writer.add_images(tag=data_dict['name'], img_tensor=data_dict['data'], global_step=step)
 
     def get_last_checkpoint(self):
         info_last_ckpt = os.path.join(self.cfg['checkpoint_dir'], 'last_checkpoint.txt')
