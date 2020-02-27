@@ -73,7 +73,7 @@ class TrainerBase:
         """
 
         self.cfg['summary_dir'] = os.path.join(self.cfg['log_dir'], get_current_time())
-        self.summary_writer = SummaryWriter(self.cfg['summary_dir'], flush_secs=30)
+        self.summary_writer = SummaryWriter(self.cfg['summary_dir'], flush_secs=15)
         if launch_tensorboard:
             self.launch_tensorboard()
 
