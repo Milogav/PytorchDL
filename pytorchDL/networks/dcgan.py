@@ -78,9 +78,9 @@ class Discriminator(torch.nn.Module):
         self.cn2 = Conv2dUnit(32, 64, stride=2, activation='leaky_relu')
         self.cn3 = Conv2dUnit(64, 128, stride=2, activation='leaky_relu')
         self.cn4 = Conv2dUnit(128, 256, stride=2, activation='leaky_relu')
-        self.cn5 = Conv2dUnit(256, 256, stride=2, activation='leaky_relu')
+        self.cn5 = Conv2dUnit(256, 512, stride=2, activation='leaky_relu')
 
-        self.dense_size = int(256 * input_shape[0] / 32 * input_shape[0] / 32)
+        self.dense_size = int(512 * input_shape[0] / 32 * input_shape[0] / 32)
         self.dense = torch.nn.Linear(self.dense_size, 1, bias=False)
 
     def forward(self, input_tensor):
