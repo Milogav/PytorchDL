@@ -96,7 +96,10 @@ class TrainerBase:
             'type': type of data ('scalar' or 'image')
             'name': the name of the log in which this new data will be included
             'stage': 'train', 'val', 'test'
-            'data': numpy array or torch tensor representing the data. If image data, use NCHW format, float type and intensity range between [0, 1]
+            'data': numpy array or torch tensor representing the data.
+                    If image data, use NCHW format, float type and intensity range between [0, 1]
+                    If pointcloud data, use Nx6xP format, where P is the number of points and the first dimension represents [x y z R G B]
+                        RGB values must be in the range [0, 1]
 
         :param log_data: list of dicts, each one containing a data to be log. This dict must have 'type', 'name', 'stage' and 'data' fields
         """
@@ -107,6 +110,12 @@ class TrainerBase:
                 self.summary_writer.add_scalar(tag=data_dict['name'], scalar_value=data_dict['data'], global_step=step)
             elif data_dict['type'] == 'image':
                 self.summary_writer.add_images(tag=data_dict['name'], img_tensor=data_dict['data'], global_step=step)
+            elif data_dict['type'] == 'pointcloud':
+                vertices = data_dict['data'][:, 0:3, :].permute(0, 2, 1)
+
+                colors = 255 * data_dict['data'][:, 3:6, :].permute(0, 2, 1)
+                colors = colors.type(torch.uint8)
+                self.summary_writer.add_mesh(tag=data_dict['name'], vertices=vertices, colors=colors, global_step=step)
 
     def get_last_checkpoint(self):
         info_last_ckpt = os.path.join(self.cfg['checkpoint_dir'], 'last_checkpoint.txt')
