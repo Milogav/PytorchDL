@@ -89,7 +89,7 @@ class TrainerBase:
     def print_tensorboard_url(self):
         print('\n\nTensorboard url: %s\n\n' % self.extra.get('tensorboard_url', 'NOT_CREATED'))
 
-    def log_to_tensorboard(self, log_data):
+    def log_to_tensorboard(self, log_data, step=None):
         """
         Log a list of data to tensorboard. Step is automatically determined from the trainer current state.
         Each piece of data to be logged must be defined as a dict, with fields:
@@ -105,7 +105,9 @@ class TrainerBase:
         """
 
         for data_dict in log_data:
-            step = self.state[data_dict['stage'].lower() + '_step']
+            if step is None:
+                step = self.state[data_dict['stage'].lower() + '_step']
+
             if data_dict['type'] == 'scalar':
                 self.summary_writer.add_scalar(tag=data_dict['name'], scalar_value=data_dict['data'], global_step=step)
             elif data_dict['type'] == 'image':
