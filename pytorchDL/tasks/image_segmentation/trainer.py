@@ -6,6 +6,7 @@ import torch
 import numpy as np
 
 from pytorchDL.trainer_base import TrainerBase
+from pytorchDL.dataset_iterator import DataIterator
 from pytorchDL.networks.unet import UNet
 from pytorchDL.tasks.image_segmentation.data import Dataset
 from pytorchDL.utils.misc import Timer, print_in_place
@@ -54,29 +55,6 @@ class Trainer(TrainerBase):
             pass
         else:
             raise Exception('Error! Input train mode (%s) not available' % train_mode)
-
-    def _load_train_dataset(self, num_workers):
-        train_dataset = Dataset(data_dir=self.cfg['train_data_dir'],
-                                output_shape=self.cfg['input_shape'])
-
-        train_dataloader = torch.utils.data.DataLoader(train_dataset,
-                                                       batch_size=self.cfg['batch_size'],
-                                                       shuffle=False,
-                                                       num_workers=num_workers)
-        self.num_train_examples = len(train_dataset)
-        self.train_dataset_iterator = iter(train_dataloader)
-
-    def _load_val_dataset(self, num_workers):
-        val_dataset = Dataset(data_dir=self.cfg['val_data_dir'],
-                              output_shape=self.cfg['input_shape'])
-
-        val_dataloader = torch.utils.data.DataLoader(val_dataset,
-                                                     batch_size=self.cfg['batch_size'],
-                                                     shuffle=True,
-                                                     num_workers=num_workers)
-
-        self.num_val_examples = len(val_dataset)
-        self.val_dataset_iterator = iter(val_dataloader)
 
     def _set_label_colors(self):
         np.random.seed(42)
@@ -135,14 +113,19 @@ class Trainer(TrainerBase):
         num_dataloader_workers = cpu_count() - 2
 
         # load train and validation datasets iterators
-        self._load_train_dataset(num_workers=num_dataloader_workers)
-        self._load_val_dataset(num_workers=num_dataloader_workers)
+        train_dataset = Dataset(data_dir=self.cfg['train_data_dir'], output_shape=self.cfg['input_shape'])
+        train_data_iterator = DataIterator(train_dataset, batch_size=self.cfg['batch_size'],
+                                           num_workers=num_dataloader_workers, shuffle=True)
+
+        val_dataset = Dataset(data_dir=self.cfg['val_data_dir'], output_shape=self.cfg['input_shape'])
+        val_data_iterator = DataIterator(val_dataset, batch_size=self.cfg['batch_size'],
+                                         num_workers=num_dataloader_workers, shuffle=True)
 
         if self.cfg['train_steps_per_epoch'] <= 0:  # if train steps per epoch is <= 0, set it to cover the whole dataset
-            self.cfg['train_steps_per_epoch'] = self.num_train_examples // self.cfg['batch_size']
+            self.cfg['train_steps_per_epoch'] = len(train_dataset) // self.cfg['batch_size']
 
         if self.cfg['val_steps_per_epoch'] <= 0:
-            self.cfg['val_steps_per_epoch'] = self.num_val_examples // self.cfg['batch_size']
+            self.cfg['val_steps_per_epoch'] = len(val_dataset) // self.cfg['batch_size']
 
         self.create_tensorboard_summary(launch_tensorboard=True)
         for ep in range(self.state['epoch'], self.cfg['max_epochs']):
@@ -155,14 +138,10 @@ class Trainer(TrainerBase):
             ep_train_mean_loss = MeanMetric()
             timer = Timer(total_steps=self.cfg['train_steps_per_epoch'])
             for i in range(self.cfg['train_steps_per_epoch']):
-                try:
-                    batch_data = next(self.train_dataset_iterator)
-                except StopIteration:  # when dataset is exhausted, reload it from scratch
-                    print('\nTrain dataset exhausted. Reloading dataset...')
-                    self._load_train_dataset(num_workers=num_dataloader_workers)
-                    batch_data = next(self.train_dataset_iterator)
 
+                batch_data = next(train_data_iterator)
                 batch_output = self.train_on_batch(batch_data)
+                
                 ep_train_mean_loss(batch_output['batch_loss'])
 
                 if (i % self.cfg['log_interval']) == 0:
@@ -191,13 +170,8 @@ class Trainer(TrainerBase):
             timer = Timer(total_steps=self.cfg['val_steps_per_epoch'])
             with torch.no_grad():
                 for i in range(self.cfg['val_steps_per_epoch']):
-                    try:
-                        batch_data = next(self.val_dataset_iterator)
-                    except StopIteration:
-                        print('\nVal dataset exhausted. Reloading dataset...')
-                        self._load_val_dataset(num_workers=num_dataloader_workers)
-                        batch_data = next(self.val_dataset_iterator)
 
+                    batch_data = next(val_data_iterator)
                     batch_output = self.eval_on_batch(batch_data)
 
                     ep_val_mean_loss(batch_output['batch_loss'])

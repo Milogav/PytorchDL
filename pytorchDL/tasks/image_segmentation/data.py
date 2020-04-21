@@ -27,7 +27,7 @@ class Dataset(torch.utils.data.Dataset):
             if os.path.exists(mask_path):
                 self.data_files.append([img_path, mask_path])
 
-        self.data_files = np.random.permutation(self.data_files)
+        self.shuffle()
         self.output_shape = output_shape
 
     def __len__(self):
@@ -45,3 +45,6 @@ class Dataset(torch.utils.data.Dataset):
         x = torch.tensor(img).permute(dims=(2, 0, 1)).type(torch.FloatTensor)
         y = torch.tensor(labels).type(torch.long)
         return x, y
+
+    def shuffle(self):
+        self.data_files = np.random.permutation(self.data_files)
