@@ -84,31 +84,52 @@ class Trainer(TrainerBase):
     def train_on_batch(self, batch_data):
         self.optimizer.zero_grad()
 
-        # define forward pass from batch_data
+        # forward pass
         x, y = batch_data
         y_pred = self.model(x.cuda())
         batch_loss = self.loss_fn(y_pred, y.cuda())
 
+        # backward pass
         batch_loss.backward()
         self.optimizer.step()
-        self.state['train_step'] += 1
 
-        batch_output = {'batch_loss': batch_loss.item(),
-                        'predictions': y_pred}
+        # logging
+        batch_loss = batch_loss.item()
+        self.ep_train_mean_loss(batch_loss)  # update mean epoch loss metric
+        self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_train_mean_loss.result())
 
-        return batch_output
+        if (self.state['train_step'] % self.cfg['log_interval']) == 0:
+            x, gt, pred = self._proc_output_for_log(batch_data, y_pred)
+            log_data = [{'data': x, 'type': 'image', 'name': '0_input'},
+                        {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
+                        {'data': pred, 'type': 'image', 'name': '2_pred_mask'},
+                        {'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
+
+            self.tb_logger.log(log_data, stage='train', step=self.state['train_step'])
+
+        self.state['train_step'] += 1  # update train step
 
     def eval_on_batch(self, batch_data):
 
+        # forward pass
         x, y = batch_data
         y_pred = self.model(x.cuda())
         batch_loss = self.loss_fn(y_pred, y.cuda())
+
+        # logging
+        batch_loss = batch_loss.item()
+        self.ep_val_mean_loss(batch_loss)  # update mean epoch loss metric
+        self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_val_mean_loss.result())
+
+        if (self.state['val_step'] % self.cfg['log_interval']) == 0:
+            x, gt, pred = self._proc_output_for_log(batch_data, y_pred)
+            log_data = [
+                {'data': x, 'type': 'image', 'name': '0_input'},
+                {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
+                {'data': pred, 'type': 'image', 'name': '2_pred_mask'}]
+            self.tb_logger.log(log_data, stage='val', step=self.state['val_step'])
+
         self.state['val_step'] += 1
-
-        batch_output = {'batch_loss': batch_loss.item(),
-                        'predictions': y_pred}
-
-        return batch_output
 
     def run(self):
 
@@ -132,74 +153,53 @@ class Trainer(TrainerBase):
         if self.cfg['val_steps_per_epoch'] <= 0:
             self.cfg['val_steps_per_epoch'] = len(val_dataset) // self.cfg['batch_size']
 
-        tb_logger = TensorboardLogger(log_dir=os.path.join(self.cfg['log_dir'], 'tensorboard'))
+        self.tb_logger = TensorboardLogger(log_dir=os.path.join(self.cfg['log_dir'], 'tensorboard'))
+        self.ep_train_mean_loss = MeanMetric()
+        self.ep_val_mean_loss = MeanMetric()
 
         for ep in range(self.state['epoch'], self.cfg['max_epochs']):
             print('\nEPOCH: %d' % ep)
             self.state['epoch'] = ep
 
+            self.ep_train_mean_loss.reset()
+            self.ep_val_mean_loss.reset()
+
             # TRAIN LOOP
             self.model.train()
             self.stage = 'train'
-            ep_train_mean_loss = MeanMetric()
-            prog_logger = ProgressLogger(total_steps=self.cfg['train_steps_per_epoch'], description='Training')
+            self.prog_logger = ProgressLogger(total_steps=self.cfg['train_steps_per_epoch'], description='Training')
 
             for i in range(self.cfg['train_steps_per_epoch']):
 
                 batch_data = next(train_data_iterator)
-                batch_output = self.train_on_batch(batch_data)
-                
-                ep_train_mean_loss(batch_output['batch_loss'])
+                self.train_on_batch(batch_data)
 
-                if (i % self.cfg['log_interval']) == 0:
-                    x, gt, pred = self._proc_output_for_log(batch_data, batch_output['predictions'])
-                    log_data = [{'data': x, 'type': 'image', 'name': '0_input'},
-                                {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
-                                {'data': pred, 'type': 'image', 'name': '2_pred_mask'},
-                                {'data': batch_output['batch_loss'], 'type': 'scalar', 'name': 'batch_loss'}]
-                    tb_logger.log(log_data, stage=self.stage, step=self.state['%s_step' % self.stage])
+            self.tb_logger.log(log_data=[{'data': self.ep_train_mean_loss.result(), 'type': 'scalar',
+                                          'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
+                               stage=self.stage, step=ep)
 
-                prog_logger.log(batch_loss=batch_output['batch_loss'], mean_loss=ep_train_mean_loss.result())
-
-            tb_logger.log(log_data=[{'data': ep_train_mean_loss.result(), 'type': 'scalar',
-                                     'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
-                          stage=self.stage, step=ep)
-
-            prog_logger.close()
+            self.prog_logger.close()
             self.save_checkpoint('checkpoint-step-%d' % self.state['train_step'])
 
             # VAL LOOP
             self.model.eval()
             self.stage = 'val'
-            ep_val_mean_loss = MeanMetric()
-            prog_logger = ProgressLogger(total_steps=self.cfg['val_steps_per_epoch'], description='Validation')
+            self.prog_logger = ProgressLogger(total_steps=self.cfg['val_steps_per_epoch'], description='Validation')
 
             with torch.no_grad():
                 for i in range(self.cfg['val_steps_per_epoch']):
 
                     batch_data = next(val_data_iterator)
-                    batch_output = self.eval_on_batch(batch_data)
+                    self.eval_on_batch(batch_data)
 
-                    ep_val_mean_loss(batch_output['batch_loss'])
+            self.tb_logger.log(log_data=[{'data': self.ep_val_mean_loss.result(), 'type': 'scalar',
+                                          'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
+                               stage=self.stage,
+                               step=ep)
 
-                    if (i % self.cfg['log_interval']) == 0:
-                        x, gt, pred = self._proc_output_for_log(batch_data, batch_output['predictions'])
-                        log_data = [
-                            {'data': x, 'type': 'image', 'name': '0_input'},
-                            {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
-                            {'data': pred, 'type': 'image', 'name': '2_pred_mask'}]
-                        tb_logger.log(log_data, stage=self.stage, step=self.state['%s_step' % self.stage])
+            self.prog_logger.close()
 
-                    prog_logger.log(batch_loss=batch_output['batch_loss'], mean_loss=ep_val_mean_loss.result())
-
-            tb_logger.log(log_data=[{'data': ep_val_mean_loss.result(), 'type': 'scalar',
-                                     'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
-                          stage=self.stage,
-                          step=ep)
-
-            prog_logger.close()
-
-            if ep_val_mean_loss.result() < self.state['best_val_loss']:
-                print('\tMean validation loss decreased from %f to %f. Saving best model' % (self.state['best_val_loss'], ep_val_mean_loss.result()))
-                self.state['best_val_loss'] = ep_val_mean_loss.result()
+            if self.ep_val_mean_loss.result() < self.state['best_val_loss']:
+                print('\tMean validation loss decreased from %f to %f. Saving best model' % (self.state['best_val_loss'], self.ep_val_mean_loss.result()))
+                self.state['best_val_loss'] = self.ep_val_mean_loss.result()
                 self.save_checkpoint('best_checkpoint')
