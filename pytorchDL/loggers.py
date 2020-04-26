@@ -26,7 +26,7 @@ class TensorboardLogger:
     def print_tensorboard_url(self):
         print('\n\nTensorboard url: %s\n\n' % self.tensorboard_url)
 
-    def log_to_tensorboard(self, log_data, stage, step):
+    def log(self, log_data, stage, step):
         """
         Log a list of data to tensorboard. Step is automatically determined from the trainer current state.
         Each piece of data to be logged must be defined as a dict, with fields:
@@ -67,5 +67,8 @@ class ProgressLogger:
         self.prog_bar.set_postfix(kwargs)
         self.prog_bar.update()
 
-    def reset(self):
-        self.prog_bar.reset()
+    def prepend_text(self, text):
+        self.prog_bar.write(text)
+
+    def close(self):
+        self.prog_bar.close()
