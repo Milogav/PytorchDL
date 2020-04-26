@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
 import argparse
 import traceback
 
@@ -42,9 +46,9 @@ if __name__ == '__main__':
         class_weights = tuple(map(float, args.imgSize.split(',')))
         assert len(class_weights) == args.numClasses
     else:
-        class_weights = tuple([1]*args.numClasses)
+        class_weights = tuple([1.0]*args.numClasses)
 
-    trainer.setup(train_mode=args.mode,
+    trainer.setup(mode=args.mode,
                   train_data_dir=args.trainDir,
                   val_data_dir=args.valDir,
                   input_shape=input_shape,

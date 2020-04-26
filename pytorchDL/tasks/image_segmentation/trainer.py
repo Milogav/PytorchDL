@@ -6,10 +6,11 @@ import torch
 import numpy as np
 
 from pytorchDL.trainer_base import TrainerBase
+from pytorchDL.loggers import TensorboardLogger, ProgressLogger
 from pytorchDL.dataset_iterator import DataIterator
 from pytorchDL.networks.unet import UNet
 from pytorchDL.tasks.image_segmentation.data import Dataset
-from pytorchDL.utils.misc import Timer, print_in_place
+
 from pytorchDL.utils.metrics import MeanMetric
 
 
@@ -19,9 +20,10 @@ class Trainer(TrainerBase):
 
         copy(os.path.realpath(__file__), self.cfg['out_dir'])
 
-    def setup(self, train_mode, train_data_dir, val_data_dir, input_shape=None, num_classes=None, init_lr=0.001, class_weights=None):
+    def setup(self, mode, train_data_dir, val_data_dir, input_shape=None, num_classes=None, init_lr=0.001, class_weights=None):
 
         self.do_backup()
+        self.mode = mode
         self.cfg['train_data_dir'] = train_data_dir
         self.cfg['val_data_dir'] = val_data_dir
 
@@ -43,18 +45,18 @@ class Trainer(TrainerBase):
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=init_lr)
         self.loss_fn = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights).cuda())
 
-        if train_mode == 'start':
+        if mode == 'start':
             if len(os.listdir(self.cfg['checkpoint_dir'])) > 0:
-                raise Exception('Error! Output checkpoint dir (%s) not empty, which is incompatible with "%s" training mode'
-                                % (self.cfg['checkpoint_dir'], train_mode))
-        elif train_mode == 'resume':
+                raise Exception('Error! Output checkpoint dir (%s) not empty, which is incompatible with "%s" trainer mode'
+                                % (self.cfg['checkpoint_dir'], mode))
+        elif mode == 'resume':
             if not len(os.listdir(self.cfg['checkpoint_dir'])):
-                raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" train mode instead')
+                raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" trainer mode instead')
             self.load_last_checkpoint(self.cfg['checkpoint_dir'])
-        elif train_mode == 'debug':
+        elif mode == 'debug':
             pass
         else:
-            raise Exception('Error! Input train mode (%s) not available' % train_mode)
+            raise Exception('Error! Input trainer mode (%s) not available' % mode)
 
     def _set_label_colors(self):
         np.random.seed(42)
@@ -110,7 +112,10 @@ class Trainer(TrainerBase):
 
     def run(self):
 
-        num_dataloader_workers = cpu_count() - 2
+        if self.mode == 'debug':
+            num_dataloader_workers = 0
+        else:
+            num_dataloader_workers = cpu_count() - 2
 
         # load train and validation datasets iterators
         train_dataset = Dataset(data_dir=self.cfg['train_data_dir'], output_shape=self.cfg['input_shape'])
@@ -127,16 +132,18 @@ class Trainer(TrainerBase):
         if self.cfg['val_steps_per_epoch'] <= 0:
             self.cfg['val_steps_per_epoch'] = len(val_dataset) // self.cfg['batch_size']
 
-        self.create_tensorboard_summary(launch_tensorboard=True)
+        tb_logger = TensorboardLogger(log_dir=os.path.join(self.cfg['log_dir'], 'tensorboard'))
+
         for ep in range(self.state['epoch'], self.cfg['max_epochs']):
-            print('\n\nTRAINING EPOCH: %d' % ep)
+            print('\nEPOCH: %d' % ep)
             self.state['epoch'] = ep
 
             # TRAIN LOOP
             self.model.train()
             self.stage = 'train'
             ep_train_mean_loss = MeanMetric()
-            timer = Timer(total_steps=self.cfg['train_steps_per_epoch'])
+            prog_logger = ProgressLogger(total_steps=self.cfg['train_steps_per_epoch'], description='Training')
+
             for i in range(self.cfg['train_steps_per_epoch']):
 
                 batch_data = next(train_data_iterator)
@@ -146,28 +153,27 @@ class Trainer(TrainerBase):
 
                 if (i % self.cfg['log_interval']) == 0:
                     x, gt, pred = self._proc_output_for_log(batch_data, batch_output['predictions'])
-                    log_data = [{'data': x, 'type': 'image', 'name': '%s/0_input' % self.stage, 'stage': self.stage},
-                                {'data': gt, 'type': 'image', 'name': '%s/1_gt_mask' % self.stage, 'stage': self.stage},
-                                {'data': pred, 'type': 'image', 'name': '%s/2_pred_mask' % self.stage, 'stage': self.stage},
-                                {'data': batch_output['batch_loss'], 'type': 'scalar', 'name': '%s/batch_loss' % self.stage, 'stage': self.stage}]
-                    self.log_to_tensorboard(log_data)
+                    log_data = [{'data': x, 'type': 'image', 'name': '0_input'},
+                                {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
+                                {'data': pred, 'type': 'image', 'name': '2_pred_mask'},
+                                {'data': batch_output['batch_loss'], 'type': 'scalar', 'name': 'batch_loss'}]
+                    tb_logger.log(log_data, stage=self.stage, step=self.state['%s_step' % self.stage])
 
-                time_left, it_time = timer()
-                print_in_place('Epoch: %d (training) -- Train step: %d -- Batch: %d/%d -- ETA: %s -- It. time: %.4f s -- Mean loss: %f'
-                               % (ep, self.state['train_step'], i, self.cfg['train_steps_per_epoch'], time_left, it_time, ep_train_mean_loss.result()))
+                prog_logger.log(batch_loss=batch_output['batch_loss'], mean_loss=ep_train_mean_loss.result())
 
-            self.log_to_tensorboard([{'data': ep_train_mean_loss.result(), 'type': 'scalar',
-                                      'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
-                                    step=ep)
+            tb_logger.log(log_data=[{'data': ep_train_mean_loss.result(), 'type': 'scalar',
+                                     'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
+                          stage=self.stage, step=ep)
 
-            print('')
+            prog_logger.close()
             self.save_checkpoint('checkpoint-step-%d' % self.state['train_step'])
 
             # VAL LOOP
             self.model.eval()
             self.stage = 'val'
             ep_val_mean_loss = MeanMetric()
-            timer = Timer(total_steps=self.cfg['val_steps_per_epoch'])
+            prog_logger = ProgressLogger(total_steps=self.cfg['val_steps_per_epoch'], description='Validation')
+
             with torch.no_grad():
                 for i in range(self.cfg['val_steps_per_epoch']):
 
@@ -179,23 +185,21 @@ class Trainer(TrainerBase):
                     if (i % self.cfg['log_interval']) == 0:
                         x, gt, pred = self._proc_output_for_log(batch_data, batch_output['predictions'])
                         log_data = [
-                            {'data': x, 'type': 'image', 'name': '%s/0_input' % self.stage, 'stage': self.stage},
-                            {'data': gt, 'type': 'image', 'name': '%s/1_gt_mask' % self.stage, 'stage': self.stage},
-                            {'data': pred, 'type': 'image', 'name': '%s/2_pred_mask' % self.stage, 'stage': self.stage}]
-                        self.log_to_tensorboard(log_data)
+                            {'data': x, 'type': 'image', 'name': '0_input'},
+                            {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
+                            {'data': pred, 'type': 'image', 'name': '2_pred_mask'}]
+                        tb_logger.log(log_data, stage=self.stage, step=self.state['%s_step' % self.stage])
 
-                    time_left, it_time = timer()
-                    print_in_place(
-                        'Epoch: %d (validation) -- Batch: %d/%d -- ETA: %s -- It. time: %.4f s -- Mean loss: %f'
-                        % (ep, i, self.cfg['val_steps_per_epoch'], time_left, it_time, ep_val_mean_loss.result()))
+                    prog_logger.log(batch_loss=batch_output['batch_loss'], mean_loss=ep_val_mean_loss.result())
 
-            self.log_to_tensorboard([{'data': ep_val_mean_loss.result(), 'type': 'scalar',
-                                      'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
-                                    step=ep)
+            tb_logger.log(log_data=[{'data': ep_val_mean_loss.result(), 'type': 'scalar',
+                                     'name': '%s/ep_mean_loss' % self.stage, 'stage': self.stage}],
+                          stage=self.stage,
+                          step=ep)
 
-            print('')
+            prog_logger.close()
+
             if ep_val_mean_loss.result() < self.state['best_val_loss']:
-                print('\tMean validation loss decreased from %f to %f. Saving best model'
-                      % (self.state['best_val_loss'], ep_val_mean_loss.result()))
+                print('\tMean validation loss decreased from %f to %f. Saving best model' % (self.state['best_val_loss'], ep_val_mean_loss.result()))
                 self.state['best_val_loss'] = ep_val_mean_loss.result()
                 self.save_checkpoint('best_checkpoint')
