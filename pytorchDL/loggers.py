@@ -1,6 +1,8 @@
 import os
 
 import torch
+import numpy as np
+
 from torch.utils.tensorboard import SummaryWriter
 from pytorchDL.utils.misc import get_current_time
 from tensorboard import program
@@ -49,6 +51,8 @@ class TensorboardLogger:
             elif data_dict['type'] == 'image':
                 self.summary_writer.add_images(tag=tag, img_tensor=data_dict['data'], global_step=step)
             elif data_dict['type'] == 'pointcloud':
+                if isinstance(data_dict['data'], np.ndarray):
+                    data_dict['data'] = torch.from_numpy(data_dict['data'])
                 vertices = data_dict['data'][:, 0:3, :].permute(0, 2, 1)
 
                 colors = 255 * data_dict['data'][:, 3:6, :].permute(0, 2, 1)
