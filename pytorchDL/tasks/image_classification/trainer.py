@@ -8,8 +8,8 @@ import numpy as np
 from pytorchDL.trainer_base import TrainerBase
 from pytorchDL.loggers import TensorboardLogger, ProgressLogger
 from pytorchDL.dataset_iterator import DataIterator
-from pytorchDL.networks.VGG import VGG16
-from pytorchDL.tasks.image_segmentation.data import Dataset
+from pytorchDL.networks.VGG import VGG11
+from pytorchDL.tasks.image_classification.data import Dataset
 
 from pytorchDL.utils.metrics import MeanMetric
 
@@ -36,7 +36,7 @@ class Trainer(TrainerBase):
         self.cfg['class_weights'] = class_weights
 
         # initialize model, optimizer and loss function
-        self.model = VGG16(input_size=self.cfg['input_shape'],
+        self.model = VGG11(input_size=self.cfg['input_shape'],
                            num_out_classes=self.cfg['num_classes'])
         self.model.cuda()
 
@@ -64,6 +64,9 @@ class Trainer(TrainerBase):
         y_pred = self.model(x.cuda())
         batch_loss = self.loss_fn(y_pred, y.cuda())
 
+        pred_logits = torch.nn.functional.softmax(y_pred, dim=1)
+        _, pred_labels = pred_logits.max(dim=1)
+
         # backward pass
         batch_loss.backward()
         self.optimizer.step()
@@ -71,6 +74,7 @@ class Trainer(TrainerBase):
         # logging
         batch_loss = batch_loss.item()
         self.ep_train_mean_loss(batch_loss)  # update mean epoch loss metric
+        self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_train_mean_loss.result())
 
         if (self.state['train_step'] % self.cfg['log_interval']) == 0:
             log_data = [{'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
@@ -88,6 +92,7 @@ class Trainer(TrainerBase):
         # logging
         batch_loss = batch_loss.item()
         self.ep_val_mean_loss(batch_loss)  # update mean epoch loss metric
+        self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_val_mean_loss.result())
 
         if (self.state['val_step'] % self.cfg['log_interval']) == 0:
             log_data = [{'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
