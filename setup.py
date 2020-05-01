@@ -29,7 +29,14 @@ setuptools.setup(
     version=get_version(),
     author="Milogav",
     description="Package containing network definitions and utilities for pytorch deep learning framework",
+    url='https://github.com/Milogav/PytorchDL',
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
-    install_requires=[get_requirements()]
+    install_requires=[get_requirements()],
+    entry_points={
+        "console_scripts": [
+            "pdl-train-image-classifier = pytorchDL.apps.train_image_classifier:main",
+            "pdl-train-image-segmenter = pytorchDL.apps.train_image_segmenter:main"
+        ]
+    }
 )
