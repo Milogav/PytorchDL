@@ -4,4 +4,4 @@ tensorboard==2.2.1
 opencv-contrib-python>=4.1.2.30
 numpy>=1.18.1
 seaborn==0.10.0
-Pillow==7.1.2  # this is a dependency missing in pytorch for tensroboard utils
+Pillow==7.1.2  # this is a dependency missing in pytorch for tensorboard utils
