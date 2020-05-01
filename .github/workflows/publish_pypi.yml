@@ -25,14 +25,13 @@ jobs:
       with:
         python-version: 3.7
     
-    - name: Install wheel 
-      run: pip install wheel
-        
-    - name: Build binary wheel and source tarball
-      run: python setup.py sdist bdist_wheel
-        
-    - name: Publish distribution to PyPI
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        user: __token__
-        password: ${{secrets.pypi_passsword}}
+    - name: Install wheel and twine
+      run: pip install setuptools wheel twine
+      
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.pypi_password }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*
