@@ -64,19 +64,19 @@ class ResNet(torch.nn.Module):
         self.cn0 = Conv2dUnit(input_size[-1], 32)
 
         self.cn1 = Conv2dUnit(32, 32, stride=2)
-        self.res_block1 = [ResidualUnit(32, 32).cuda() for i in range(3)]
+        self.res_block1 = torch.nn.Sequential(*[ResidualUnit(32, 32) for _ in range(3)])
 
         self.cn2 = Conv2dUnit(32, 64)
-        self.res_block2 = [ResidualUnit(64, 64).cuda() for i in range(3)]
+        self.res_block2 = torch.nn.Sequential(*[ResidualUnit(64, 64) for _ in range(3)])
 
         self.cn3 = Conv2dUnit(64, 128, stride=2)
-        self.res_block3 = [ResidualUnit(128, 128).cuda() for i in range(3)]
+        self.res_block3 = torch.nn.Sequential(*[ResidualUnit(128, 128) for _ in range(3)])
 
         self.cn4 = Conv2dUnit(128, 128)
-        self.res_block4 = [ResidualUnit(128, 128).cuda() for i in range(3)]
+        self.res_block4 = torch.nn.Sequential(*[ResidualUnit(128, 128) for _ in range(3)])
 
         self.cn5 = Conv2dUnit(128, 256, stride=2)
-        self.res_block5 = [ResidualUnit(256, 256).cuda() for i in range(3)]
+        self.res_block5 = torch.nn.Sequential(*[ResidualUnit(256, 256) for _ in range(3)])
 
         self.cn6 = Conv2dUnit(256, 512)
 
@@ -86,24 +86,19 @@ class ResNet(torch.nn.Module):
         x = self.cn0(input)
 
         x = self.cn1(x)
-        for res_layer in self.res_block1:
-            x = res_layer(x)
+        x = self.res_block1(x)
 
         x = self.cn2(x)
-        for res_layer in self.res_block2:
-            x = res_layer(x)
+        x = self.res_block2(x)
 
         x = self.cn3(x)
-        for res_layer in self.res_block3:
-            x = res_layer(x)
+        x = self.res_block3(x)
 
         x = self.cn4(x)
-        for res_layer in self.res_block4:
-            x = res_layer(x)
+        x = self.res_block4(x)
 
         x = self.cn5(x)
-        for res_layer in self.res_block5:
-            x = res_layer(x)
+        x = self.res_block5(x)
 
         x = self.cn6(x)
 
