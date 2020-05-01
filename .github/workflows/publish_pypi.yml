@@ -1,4 +1,3 @@
- 
 # Workflow to publish package to PyPI when a new tag is pushed
 
 name: Publish to PyPI
