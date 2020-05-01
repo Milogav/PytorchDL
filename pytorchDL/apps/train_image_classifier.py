@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import argparse
 import traceback
 
-from pytorchDL.tasks.image_segmentation.trainer import Trainer
+from pytorchDL.tasks.image_classification.trainer import Trainer
 
 
 def parse_args():
@@ -30,8 +30,7 @@ def parse_args():
     return args
 
 
-if __name__ == '__main__':
-
+def main():
     args = parse_args()
     trainer = Trainer(out_dir=args.outDir,
                       batch_size=args.batchSize,
@@ -46,7 +45,7 @@ if __name__ == '__main__':
         class_weights = tuple(map(float, args.imgSize.split(',')))
         assert len(class_weights) == args.numClasses
     else:
-        class_weights = tuple([1.0]*args.numClasses)
+        class_weights = tuple([1.0] * args.numClasses)
 
     trainer.setup(mode=args.mode,
                   train_data_dir=args.trainDir,
@@ -64,3 +63,7 @@ if __name__ == '__main__':
     except Exception as error:
         print('\n\n')
         traceback.print_exc()
+
+
+if __name__ == '__main__':
+    main()
