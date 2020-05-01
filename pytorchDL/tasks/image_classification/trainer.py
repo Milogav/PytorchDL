@@ -8,7 +8,7 @@ import numpy as np
 from pytorchDL.trainer_base import TrainerBase
 from pytorchDL.loggers import TensorboardLogger, ProgressLogger
 from pytorchDL.dataset_iterator import DataIterator
-from pytorchDL.networks.VGG import VGG11
+from pytorchDL.networks.resnet import ResNet
 from pytorchDL.tasks.image_classification.data import Dataset
 
 from pytorchDL.utils.metrics import MeanMetric
@@ -36,8 +36,8 @@ class Trainer(TrainerBase):
         self.cfg['class_weights'] = class_weights
 
         # initialize model, optimizer and loss function
-        self.model = VGG11(input_size=self.cfg['input_shape'],
-                           num_out_classes=self.cfg['num_classes'])
+        self.model = ResNet(input_size=self.cfg['input_shape'],
+                            num_out_classes=self.cfg['num_classes'])
         self.model.cuda()
 
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=init_lr)
@@ -93,10 +93,6 @@ class Trainer(TrainerBase):
         batch_loss = batch_loss.item()
         self.ep_val_mean_loss(batch_loss)  # update mean epoch loss metric
         self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_val_mean_loss.result())
-
-        if (self.state['val_step'] % self.cfg['log_interval']) == 0:
-            log_data = [{'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
-            self.tb_logger.log(log_data, stage='val', step=self.state['val_step'])
 
         self.state['val_step'] += 1
 
