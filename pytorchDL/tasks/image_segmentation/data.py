@@ -34,15 +34,27 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.data_files)
 
     def __getitem__(self, index):
-        img = cv2.imread(self.data_files[index][0])
+
+        h, w, ch = self.output_shape
+        if ch > 1:
+            img = cv2.imread(self.data_files[index][0])
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            img = cv2.imread(self.data_files[index][0], 0)
+            img = np.expand_dims(img, axis=2)
+
         labels = cv2.imread(self.data_files[index][1], 0)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        img = cv2.resize(img, (self.output_shape[1], self.output_shape[0]))
-        labels = cv2.resize(labels, (self.output_shape[1], self.output_shape[0]), interpolation=cv2.INTER_NEAREST)
+        img = cv2.resize(img, (w, h))
+        labels = cv2.resize(labels, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        img = normalize(img, 0, 1)
-        x = torch.tensor(img).permute(dims=(2, 0, 1)).type(torch.FloatTensor)
+        img = normalize(img, 0, 1).astype(np.float32)
+
+        if ch == 1:
+            x = torch.from_numpy(img[None])
+        else:
+            x = torch.from_numpy(img).permute(dims=(2, 0, 1))
+
         y = torch.tensor(labels).type(torch.long)
         return x, y
 

@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import argparse
 import traceback
 
-from pytorchDL.tasks.image_segmentation.trainer import Trainer
+from pytorchDL.tasks.image_classification.trainer import Trainer
 
 
 def parse_args():

@@ -10,10 +10,23 @@ def get_requirements():
 
     return reqs
 
-    
+
+def get_version():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(cwd, 'pytorchDL', '__init__.py'), 'r') as fp:
+        lines = fp.read().splitlines()
+
+    for line in lines:
+        if line.startswith('__version__'):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+
+    raise Exception('Could not retrieve version number')
+
+
 setuptools.setup(
     name="pytorchDL",
-    version="0.1",
+    version=get_version(),
     author="Milogav",
     description="Package containing network definitions and utilities for pytorch deep learning framework",
     packages=setuptools.find_packages(),

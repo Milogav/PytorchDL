@@ -8,9 +8,12 @@ class MeanMetric:
         self.it = 0
 
     def __call__(self, value):
-
         self.acc += value
         self.it += 1
+
+    def reset(self):
+        self.acc = 0
+        self.it = 0
 
     def result(self):
         return self.acc / self.it

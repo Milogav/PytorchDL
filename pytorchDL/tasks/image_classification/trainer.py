@@ -8,8 +8,8 @@ import numpy as np
 from pytorchDL.trainer_base import TrainerBase
 from pytorchDL.loggers import TensorboardLogger, ProgressLogger
 from pytorchDL.dataset_iterator import DataIterator
-from pytorchDL.networks.unet import UNet
-from pytorchDL.tasks.image_segmentation.data import Dataset
+from pytorchDL.networks.resnet import ResNet
+from pytorchDL.tasks.image_classification.data import Dataset
 
 from pytorchDL.utils.metrics import MeanMetric
 
@@ -36,11 +36,9 @@ class Trainer(TrainerBase):
         self.cfg['class_weights'] = class_weights
 
         # initialize model, optimizer and loss function
-        self.model = UNet(input_channels=self.cfg['input_shape'][-1],
-                          output_channels=self.cfg['num_classes'])
+        self.model = ResNet(input_size=self.cfg['input_shape'],
+                            num_out_classes=self.cfg['num_classes'])
         self.model.cuda()
-
-        self._set_label_colors()
 
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=init_lr)
         self.loss_fn = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights).cuda())
@@ -58,29 +56,6 @@ class Trainer(TrainerBase):
         else:
             raise Exception('Error! Input trainer mode (%s) not available' % mode)
 
-    def _set_label_colors(self):
-        np.random.seed(42)
-        self.label_colors = np.random.uniform(0, 1, size=(3, self.cfg['num_classes']))
-        np.random.seed()
-
-    def _proc_output_for_log(self, batch_data, y_pred):
-        x, y = batch_data
-        x = x.cpu().detach().numpy()[0]
-        y = y.cpu().detach().numpy()[0]
-
-        y_pred = torch.nn.functional.softmax(y_pred, dim=1)
-        y_pred = y_pred.cpu().detach().numpy()[0]
-        pred_labels = np.argmax(y_pred, axis=0)
-
-        gt_label_img = self.label_colors[:, y]
-        gt_label_img = gt_label_img[None]
-
-        pred_label_img = self.label_colors[:, pred_labels]
-        pred_label_img = pred_label_img[None]
-
-        x = x[None]
-        return x, gt_label_img, pred_label_img
-
     def train_on_batch(self, batch_data):
         self.optimizer.zero_grad()
 
@@ -88,6 +63,9 @@ class Trainer(TrainerBase):
         x, y = batch_data
         y_pred = self.model(x.cuda())
         batch_loss = self.loss_fn(y_pred, y.cuda())
+
+        pred_logits = torch.nn.functional.softmax(y_pred, dim=1)
+        _, pred_labels = pred_logits.max(dim=1)
 
         # backward pass
         batch_loss.backward()
@@ -99,12 +77,7 @@ class Trainer(TrainerBase):
         self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_train_mean_loss.result())
 
         if (self.state['train_step'] % self.cfg['log_interval']) == 0:
-            x, gt, pred = self._proc_output_for_log(batch_data, y_pred)
-            log_data = [{'data': x, 'type': 'image', 'name': '0_input'},
-                        {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
-                        {'data': pred, 'type': 'image', 'name': '2_pred_mask'},
-                        {'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
-
+            log_data = [{'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
             self.tb_logger.log(log_data, stage='train', step=self.state['train_step'])
 
         self.state['train_step'] += 1  # update train step
@@ -120,14 +93,6 @@ class Trainer(TrainerBase):
         batch_loss = batch_loss.item()
         self.ep_val_mean_loss(batch_loss)  # update mean epoch loss metric
         self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_val_mean_loss.result())
-
-        if (self.state['val_step'] % self.cfg['log_interval']) == 0:
-            x, gt, pred = self._proc_output_for_log(batch_data, y_pred)
-            log_data = [
-                {'data': x, 'type': 'image', 'name': '0_input'},
-                {'data': gt, 'type': 'image', 'name': '1_gt_mask'},
-                {'data': pred, 'type': 'image', 'name': '2_pred_mask'}]
-            self.tb_logger.log(log_data, stage='val', step=self.state['val_step'])
 
         self.state['val_step'] += 1
 
