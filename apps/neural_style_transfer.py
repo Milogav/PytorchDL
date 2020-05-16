@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument('--maxIter',  type=int, default=1500, required=False, help='Maximum number of iterations')
 
     parser.add_argument('--device', type=str, default=None, required=False, choices=['gpu', 'cpu'], help='Device selection')
+    parser.add_argument('--outputSize', type=str, required=False, default=None, help='Output image size -> H,W  e.g "512,512". Defualt is content image size')
     parser.add_argument('--initMode', type=str, default='content_image', required=False, choices=['content_image', 'random'], help='Output image initialization')
     parser.add_argument('--colorMode', type=str, default='free', required=False, choices=['content_image', 'free'], help='Keep content image color or allow free color transfer')
     parser.add_argument('-lr', '--learningRate', type=float, default=0.05, required=False, help='Learning rate')
@@ -34,18 +35,18 @@ def main():
                               style_weight=args.styleWeight,
                               tv_weight=args.totalVariationWeight)
 
-    out_path = '/home/miguel/nst.png'
-
     content_img = cv2.imread(args.contentImg)
     style_img = cv2.imread(args.styleImg)
 
+    output_shape = list(map(int, args.outputSize.split(','))) if args.outputSize is not None else None
+
     try:
-        nst.run(content_img, style_img, steps=args.maxIter)
-        print('\n\nMaximum steps reached. Saving output to: %s\n\n' % out_path)
+        nst.run(content_img, style_img, steps=args.maxIter, output_shape=output_shape)
+        print('\n\nMaximum steps reached. Saving output to: %s\n\n' % args.outputPath)
         cv2.imwrite(args.outputPath, nst.output_result)
 
     except KeyboardInterrupt:
-        print('\n\nExecution terminated manually by the user!!! Saving current output to: %s\n\n' % out_path)
+        print('\n\nExecution terminated manually by the user!!! Saving current output to: %s\n\n' % args.outputPath)
         cv2.imwrite(args.outputPath, nst.output_result)
 
     except Exception as error:
