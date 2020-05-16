@@ -35,8 +35,9 @@ setuptools.setup(
     install_requires=[get_requirements()],
     entry_points={
         "console_scripts": [
-            "pdl-train-image-classifier = pytorchDL.apps.train_image_classifier:main",
-            "pdl-train-image-segmenter = pytorchDL.apps.train_image_segmenter:main"
+            "pdl-train-image-classifier = apps.train_image_classifier:main",
+            "pdl-train-image-segmenter = apps.train_image_segmenter:main",
+            "pdl-neural-style-transfer = apps.neural_style_transfer:main"
         ]
     }
 )

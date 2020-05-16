@@ -97,6 +97,9 @@ class TrainerBase:
         with open(info_last_ckpt, 'w') as fp:
             fp.write(name + '.pth')
 
+    def save_best_checkpoint(self):
+        self.save_checkpoint('best_checkpoint')
+
     def load_checkpoint(self, ckpt_path):
         """Loads a generic checkpoint. If working with custom checkpoints, this method must be overridden
         in the children class that inherits from TrainerBase
@@ -118,3 +121,8 @@ class TrainerBase:
         print('\tLoading last checkpoint from folder: %s' % ckpt_dir)
         self.cfg['checkpoint_dir'] = ckpt_dir
         self.load_checkpoint(ckpt_path=os.path.join(ckpt_dir, self.get_last_checkpoint()))
+
+    def load_best_checkpoint(self, ckpt_dir):
+        print('\tLoading best checkpoint from folder: %s' % ckpt_dir)
+        self.cfg['checkpoint_dir'] = ckpt_dir
+        self.load_checkpoint(ckpt_path=os.path.join(ckpt_dir, 'best_checkpoint.pth'))
