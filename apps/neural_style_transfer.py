@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument('--maxIter',  type=int, default=1500, required=False, help='Maximum number of iterations')
 
     parser.add_argument('--device', type=str, default=None, required=False, choices=['gpu', 'cpu'], help='Device selection')
-    parser.add_argument('--outputSize', type=str, required=False, default=None, help='Output image size -> H,W  e.g "512,512". Defualt is content image size')
+    parser.add_argument('--outputSize', type=str, required=False, default=None, help='Output image size -> H,W  e.g "512,512". Default is content image size')
     parser.add_argument('--initMode', type=str, default='content_image', required=False, choices=['content_image', 'random'], help='Output image initialization')
     parser.add_argument('--colorMode', type=str, default='free', required=False, choices=['content_image', 'free'], help='Keep content image color or allow free color transfer')
     parser.add_argument('-lr', '--learningRate', type=float, default=0.05, required=False, help='Learning rate')
