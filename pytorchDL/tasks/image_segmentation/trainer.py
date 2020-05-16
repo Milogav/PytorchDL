@@ -53,6 +53,10 @@ class Trainer(TrainerBase):
             if not len(os.listdir(self.cfg['checkpoint_dir'])):
                 raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" trainer mode instead')
             self.load_last_checkpoint(self.cfg['checkpoint_dir'])
+        elif mode == 'test':
+            if not len(os.listdir(self.cfg['checkpoint_dir'])):
+                raise Exception('Error! Cannot load best checkpoint from an empty checkpoint dir.')
+            self.load_best_checkpoint(self.cfg['checkpoint_dir'])
         elif mode == 'debug':
             pass
         else:
@@ -202,4 +206,7 @@ class Trainer(TrainerBase):
             if self.ep_val_mean_loss.result() < self.state['best_val_loss']:
                 print('\tMean validation loss decreased from %f to %f. Saving best model' % (self.state['best_val_loss'], self.ep_val_mean_loss.result()))
                 self.state['best_val_loss'] = self.ep_val_mean_loss.result()
-                self.save_checkpoint('best_checkpoint')
+                self.save_best_checkpoint()
+
+    def run_testing(self):
+        raise NotImplementedError()
