@@ -36,8 +36,8 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "pdl-train-image-classifier = apps.image_classification.run_training:main",
-            "pdl-train-image-segmenter = apps.image_segmentation.run_training",
-            "pdl-neural-style-transfer = apps.neural_style_transfer:run_neural_style_transfer:main"
+            "pdl-train-image-segmenter = apps.image_segmentation.run_training:main",
+            "pdl-neural-style-transfer = apps.neural_style_transfer.run_neural_style_transfer:main"
         ]
     }
 )
