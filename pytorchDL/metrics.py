@@ -49,8 +49,8 @@ class ConfusionMatrix:
 
         fmt = 'd' if np.issubdtype(cm.dtype, np.integer) else '.3f'
         plt.figure(figsize=(15, 15))
-        sns.heatmap(cm, annot=True, xticklabels=self.tags, yticklabels=self.tags, fmt=fmt,
-                    cmap='Blues')
+        ax = sns.heatmap(cm, annot=True, xticklabels=self.tags, yticklabels=self.tags, fmt=fmt, cmap='Blues')
+        ax.set(xlabel='PREDICTED', ylabel='GROUND TRUTH')
         plt.title(title)
         if to_file is None:
             plt.show()

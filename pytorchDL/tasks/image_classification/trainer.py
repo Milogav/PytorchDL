@@ -11,7 +11,7 @@ from pytorchDL.dataset_iterator import DataIterator
 from pytorchDL.networks.resnet import ResNet
 from pytorchDL.tasks.image_classification.data import Dataset
 
-from pytorchDL.utils.metrics import MeanMetric
+from pytorchDL.metrics import MeanMetric
 
 
 class Trainer(TrainerBase):

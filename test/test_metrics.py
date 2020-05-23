@@ -2,7 +2,7 @@ import os
 import unittest
 
 import numpy as np
-from pytorchDL.utils.metrics import ConfusionMatrix, MeanMetric
+from pytorchDL.metrics import ConfusionMatrix, MeanMetric
 
 
 class TestMeanMetric(unittest.TestCase):
