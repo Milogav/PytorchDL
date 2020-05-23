@@ -35,9 +35,9 @@ setuptools.setup(
     install_requires=[get_requirements()],
     entry_points={
         "console_scripts": [
-            "pdl-train-image-classifier = apps.train_image_classifier:main",
-            "pdl-train-image-segmenter = apps.train_image_segmenter:main",
-            "pdl-neural-style-transfer = apps.neural_style_transfer:main"
+            "pdl-train-image-classifier = apps.image_classification.run_training:main",
+            "pdl-train-image-segmenter = apps.image_segmentation.run_training",
+            "pdl-neural-style-transfer = apps.neural_style_transfer:run_neural_style_transfer:main"
         ]
     }
 )
