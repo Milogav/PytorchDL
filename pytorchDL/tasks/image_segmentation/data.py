@@ -48,7 +48,7 @@ class Dataset(torch.utils.data.Dataset):
         img = cv2.resize(img, (w, h))
         labels = cv2.resize(labels, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        img = normalize(img, 0, 1).astype(np.float32)
+        img = img.astype(np.float32) / 255
 
         if ch == 1:
             x = torch.from_numpy(img[None])

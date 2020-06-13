@@ -57,5 +57,7 @@ class ConfusionMatrix:
         else:
             plt.savefig(to_file)
 
+        return ax
+
 
 
