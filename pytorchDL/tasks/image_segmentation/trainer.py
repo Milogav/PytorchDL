@@ -9,6 +9,7 @@ from pytorchDL.loggers import TensorboardLogger, ProgressLogger
 from pytorchDL.dataset_iterator import DataIterator
 from pytorchDL.networks.unet import UNet
 from pytorchDL.tasks.image_segmentation.data import Dataset
+from pytorchDL.utils.misc import generate_random_colors
 
 from pytorchDL.metrics import MeanMetric
 
@@ -34,9 +35,7 @@ class Trainer(TrainerBase):
         self.save_config(os.path.join(self.out_dir, 'trainer_cfg.json'))
 
     def _set_label_colors(self):
-        np.random.seed(42)
-        self.label_colors = np.random.uniform(0, 1, size=(3, self.cfg['num_out_classes']))
-        np.random.seed()
+        self.label_colors = generate_random_colors(self.cfg['num_out_classes'], random_seed=42).T
 
     def _proc_output_for_log(self, batch_data, y_pred):
         x, y = batch_data

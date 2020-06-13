@@ -1,6 +1,8 @@
 from time import time
 from datetime import datetime
 
+import numpy as np
+
 
 def print_in_place(text):
     print('\r' + text + '\t' * 5, end='', sep='')
@@ -29,3 +31,11 @@ def get_current_time():
     return datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
 
+def generate_random_colors(n_colors, random_seed=None):
+    if random_seed is not None:
+        np.random.seed(random_seed)
+    colors = np.random.uniform(0, 1, size=(n_colors, 3))
+    if random_seed is not None:
+        np.random.seed()
+
+    return colors
