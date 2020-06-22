@@ -5,8 +5,6 @@ import cv2
 import torch
 import numpy as np
 
-from pytorchDL.utils.imgproc import normalize
-
 
 class Dataset(torch.utils.data.Dataset):
 

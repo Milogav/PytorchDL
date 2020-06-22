@@ -60,4 +60,16 @@ class ConfusionMatrix:
         return ax
 
 
+class ConfusionMatrixTopK(ConfusionMatrix):
 
+    def __init__(self, num_classes, k, tags=None):
+        super().__init__(num_classes=num_classes, tags=tags)
+        self.k = k
+
+    def update(self, gt_labels, pred_probs):
+        topk = np.argsort(-pred_probs, axis=1)[0:self.k]
+        for gt, top_preds in zip(gt_labels, topk):
+            if gt in top_preds:
+                self.cm[gt, gt] += 1
+            else:
+                self.cm[gt, top_preds[0]] += 1
