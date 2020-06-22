@@ -8,15 +8,15 @@ def get_script_path():
 
 
 class ResidualBlock(torch.nn.Module):
-    def __init__(self, in_features, n_res_units):
+    def __init__(self, in_features, n_res_units, bn=True):
         super(ResidualBlock, self).__init__()
 
         self.out_features = in_features
 
         res_units = list()
-        res_units.append(ResidualConv2dLayer(in_features, activation='relu', bn=True))
+        res_units.append(ResidualConv2dLayer(in_features, activation='relu', bn=bn))
         for _ in range(1, n_res_units):
-            res_units.append(ResidualConv2dLayer(in_features, activation='relu', bn=True))
+            res_units.append(ResidualConv2dLayer(in_features, activation='relu', bn=bn))
 
         self._res_block = torch.nn.Sequential(*res_units)
 
@@ -25,7 +25,7 @@ class ResidualBlock(torch.nn.Module):
 
 
 class ResNet(torch.nn.Module):
-    def __init__(self, input_size, num_out_classes, res_units_per_block=3):
+    def __init__(self, input_size, num_out_classes, res_units_per_block=2, **kwargs):
         super().__init__()
 
         self.cn0 = Conv2dLayer(input_size[-1], 32, activation='relu')

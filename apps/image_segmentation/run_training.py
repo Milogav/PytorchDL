@@ -28,28 +28,30 @@ def parse_args():
 
 def main():
     args = parse_args()
-    trainer = Trainer(out_dir=args.outDir,
-                      batch_size=args.batchSize,
-                      max_epochs=args.maxEpochs,
-                      train_steps_per_epoch=args.trainStepsPerEpoch,
-                      val_steps_per_epoch=-1,
-                      log_interval=args.logInterval)
 
-    input_shape = list(map(int, args.imgSize.split(',')))
+    input_size = list(map(int, args.imgSize.split(',')))
 
     if args.classWeights is not None:
         class_weights = tuple(map(float, args.imgSize.split(',')))
         assert len(class_weights) == args.numClasses
     else:
-        class_weights = tuple([1.0]*args.numClasses)
+        class_weights = tuple([1.0] * args.numClasses)
 
-    trainer.setup(mode=args.mode,
-                  train_data_dir=args.trainDir,
-                  val_data_dir=args.valDir,
-                  input_shape=input_shape,
-                  num_classes=args.numClasses,
-                  init_lr=args.initLR,
-                  class_weights=class_weights)
+    cfg = {'train_data_dir': args.trainDir,
+           'val_data_dir': args.valDir,
+           'input_size': input_size,
+           'num_out_classes': args.numClasses,
+           'class_weights': class_weights}
+
+    trainer = Trainer(trainer_mode=args.mode,
+                      out_dir=args.outDir,
+                      batch_size=args.batchSize,
+                      max_epochs=args.maxEpochs,
+                      train_steps_per_epoch=args.trainStepsPerEpoch,
+                      val_steps_per_epoch=-1,
+                      log_interval=args.logInterval,
+                      init_lr=args.initLR,
+                      **cfg)
 
     try:
         trainer.run()

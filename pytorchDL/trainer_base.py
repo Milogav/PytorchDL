@@ -2,49 +2,82 @@ import os
 import json
 
 import torch
-
 import numpy as np
 
 
 class TrainerBase:
 
-    def __init__(self, out_dir, batch_size, max_epochs, train_steps_per_epoch, val_steps_per_epoch, log_interval, **kwargs):
+    def __init__(self, trainer_mode, out_dir, batch_size, max_epochs, train_steps_per_epoch, val_steps_per_epoch, log_interval, **cfg_args):
 
         """
-        Setup the trainer configuration
+        Setup the trainer attributes
         :param out_dir: main output directory where logs and checkpoints will be saved
         :param batch_size:
         :param max_epochs: maximum training epoch number
         :param train_steps_per_epoch: train steps per epoch
         :param val_steps_per_epoch: validation steps per epoch
         :param log_interval: train/val steps between logs
-        :param kwargs: any additional configuration arguments
+        :param cfg_args: any additional configuration. It will be stored in self.cfg as a dict
         :return:
         """
 
-        self.cfg = {'out_dir': out_dir,
-                    'log_dir': os.path.join(out_dir, 'logs'),
-                    'checkpoint_dir': os.path.join(out_dir, 'checkpoints'),
-                    'batch_size': batch_size,
-                    'max_epochs': max_epochs,
-                    'train_steps_per_epoch': train_steps_per_epoch,
-                    'val_steps_per_epoch': val_steps_per_epoch,
-                    'log_interval': log_interval}
+        self.out_dir = out_dir
+        self.log_dir = os.path.join(out_dir, 'logs')
+        self.checkpoint_dir = os.path.join(out_dir, 'checkpoints')
+        self.batch_size = batch_size
+        self.max_epochs = max_epochs
+        self.train_steps_per_epoch = train_steps_per_epoch
+        self.val_steps_per_epoch = val_steps_per_epoch
+        self.log_interval = log_interval
+        self.trainer_mode = trainer_mode
 
-        os.makedirs(self.cfg['log_dir'], exist_ok=True)
-        os.makedirs(self.cfg['checkpoint_dir'], exist_ok=True)
+        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        self.cfg.update(kwargs)  # append extra fields in cfg dictionary
         self.state = {'epoch': 0,
                       'train_step': 0,
                       'val_step': 0,
                       'best_val_loss': np.inf}
 
-        self.extra = {}
-        self.summary_writer = None
         self.model = None
         self.optimizer = None
         self.loss_fn = None
+        self.cfg = cfg_args
+
+    def setup(self):
+
+        if self.trainer_mode == 'start':
+            if len(os.listdir(self.checkpoint_dir)) > 0:
+                raise Exception('Error! Output checkpoint dir (%s) not empty, which is incompatible with "%s" trainer mode'
+                                % (self.cfg['checkpoint_dir'], self.trainer_mode))
+        elif self.trainer_mode == 'resume':
+            if not len(os.listdir(self.checkpoint_dir)):
+                raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" trainer mode instead')
+            self.load_last_checkpoint(self.checkpoint_dir)
+        elif self.trainer_mode == 'test':
+            if not len(os.listdir(self.checkpoint_dir)):
+                raise Exception('Error! Cannot load best checkpoint from an empty checkpoint dir.')
+            self.load_best_checkpoint(self.checkpoint_dir)
+        elif self.trainer_mode == 'debug':
+            pass
+        else:
+            raise Exception('Error! Input trainer mode (%s) not available' % self.trainer_mode)
+
+    def set_model(self, model, device=None):
+        self.model = model
+        if device is not None:
+            self.model.to(device)
+
+    def set_optimizer(self, optimizer):
+        self.optimizer = optimizer
+
+    def set_loss_fn(self, loss_fn, device=None):
+        self.loss_fn = loss_fn
+        if device is not None:
+            self.loss_fn.to(device)
+
+    def set_config(self, **cfg_args):
+        self.cfg.update(cfg_args)
 
     def save_config(self, out_path):
         """
@@ -86,14 +119,14 @@ class TrainerBase:
             'model_state': self.model.state_dict(),
             'optimizer_state': self.optimizer.state_dict(),
             'loss_fn_state': self.loss_fn.state_dict(),
-            'trainer_cfg': self.cfg,
-            'trainer_state': self.state
+            'trainer_state': self.state,
+            'trainer_cfg': self.cfg
         }
 
-        ckpt_path = os.path.join(self.cfg['checkpoint_dir'], name+'.pth')
+        ckpt_path = os.path.join(self.checkpoint_dir, name+'.pth')
         torch.save(checkpoint, ckpt_path)
 
-        info_last_ckpt = os.path.join(self.cfg['checkpoint_dir'], 'last_checkpoint.txt')
+        info_last_ckpt = os.path.join(self.checkpoint_dir, 'last_checkpoint.txt')
         with open(info_last_ckpt, 'w') as fp:
             fp.write(name + '.pth')
 
@@ -110,7 +143,6 @@ class TrainerBase:
         print('\tLoading checkpoint from: %s' % ckpt_path)
         checkpoint = torch.load(ckpt_path)
 
-        self.cfg = checkpoint['trainer_cfg']
         self.state = checkpoint['trainer_state']
         self.loss_fn.load_state_dict(checkpoint['loss_fn_state'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -119,10 +151,8 @@ class TrainerBase:
     def load_last_checkpoint(self, ckpt_dir):
 
         print('\tLoading last checkpoint from folder: %s' % ckpt_dir)
-        self.cfg['checkpoint_dir'] = ckpt_dir
         self.load_checkpoint(ckpt_path=os.path.join(ckpt_dir, self.get_last_checkpoint()))
 
     def load_best_checkpoint(self, ckpt_dir):
         print('\tLoading best checkpoint from folder: %s' % ckpt_dir)
-        self.cfg['checkpoint_dir'] = ckpt_dir
         self.load_checkpoint(ckpt_path=os.path.join(ckpt_dir, 'best_checkpoint.pth'))
