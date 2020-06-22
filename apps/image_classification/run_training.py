@@ -21,21 +21,15 @@ def parse_args():
     parser.add_argument('--trainStepsPerEpoch', type=int, required=False, default=-1, help='Number of steps that define one epoch. Default = -1 -->  all dataset examples')
     parser.add_argument('--logInterval', type=int, required=False, default=15, help='Log step interval. Default = log every 15 steps')
     parser.add_argument('--initLR', type=float, required=False, default=0.001)
-    parser.add_argument('--classWeights', type=str, required=False, help='Weight for each class, as a comma separated strin of floats e.g "1,2,0.5,7"')
+    parser.add_argument('--classWeights', type=str, required=False, help='Weight for each class, as a comma separated string of floats e.g "1,2,0.5,7"')
     args = parser.parse_args()
     return args
 
 
 def main():
     args = parse_args()
-    trainer = Trainer(out_dir=args.outDir,
-                      batch_size=args.batchSize,
-                      max_epochs=args.maxEpochs,
-                      train_steps_per_epoch=args.trainStepsPerEpoch,
-                      val_steps_per_epoch=-1,
-                      log_interval=args.logInterval)
 
-    input_shape = list(map(int, args.imgSize.split(',')))
+    input_size = list(map(int, args.imgSize.split(',')))
 
     if args.classWeights is not None:
         class_weights = tuple(map(float, args.imgSize.split(',')))
@@ -43,13 +37,21 @@ def main():
     else:
         class_weights = tuple([1.0] * args.numClasses)
 
-    trainer.setup(mode=args.mode,
-                  train_data_dir=args.trainDir,
-                  val_data_dir=args.valDir,
-                  input_shape=input_shape,
-                  num_classes=args.numClasses,
-                  init_lr=args.initLR,
-                  class_weights=class_weights)
+    cfg = {'train_data_dir': args.trainDir,
+           'val_data_dir': args.valDir,
+           'input_size': input_size,
+           'num_out_classes': args.numClasses,
+           'class_weights': class_weights}
+
+    trainer = Trainer(trainer_mode=args.mode,
+                      out_dir=args.outDir,
+                      batch_size=args.batchSize,
+                      max_epochs=args.maxEpochs,
+                      train_steps_per_epoch=args.trainStepsPerEpoch,
+                      val_steps_per_epoch=-1,
+                      log_interval=args.logInterval,
+                      init_lr=args.initLR,
+                      **cfg)
 
     try:
         trainer.run()

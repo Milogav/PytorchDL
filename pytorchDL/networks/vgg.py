@@ -9,7 +9,7 @@ def get_script_path():
 
 class VGG11(torch.nn.Module):
 
-    def __init__(self, input_size, num_out_classes):
+    def __init__(self, input_size, num_out_classes, **kwargs):
         super(VGG11, self).__init__()
 
         self.cn1 = Conv2dLayer(input_size[-1], 32, activation='relu')

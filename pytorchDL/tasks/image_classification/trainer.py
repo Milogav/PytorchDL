@@ -16,49 +16,19 @@ from pytorchDL.metrics import MeanMetric
 
 class Trainer(TrainerBase):
 
-    def do_backup(self):
+    def __init__(self, trainer_mode, out_dir, batch_size, max_epochs, train_steps_per_epoch, val_steps_per_epoch, log_interval,
+                 init_lr, **cfg_args):
 
-        copy(os.path.realpath(__file__), self.cfg['out_dir'])
+        super().__init__(trainer_mode, out_dir, batch_size, max_epochs, train_steps_per_epoch, val_steps_per_epoch, log_interval,
+                         **cfg_args)
 
-    def setup(self, mode, train_data_dir, val_data_dir, input_shape=None, num_classes=None, init_lr=0.001, class_weights=None):
+        class_weights = torch.Tensor(self.cfg['class_weights']).cuda()
+        self.set_model(model=ResNet(**self.cfg), device=torch.device('cuda'))
+        self.set_optimizer(optimizer=torch.optim.Adam(params=self.model.parameters(), lr=init_lr))
+        self.set_loss_fn(torch.nn.CrossEntropyLoss(weight=class_weights), device=torch.device('cuda'))
 
-        self.do_backup()
-        self.mode = mode
-        self.cfg['train_data_dir'] = train_data_dir
-        self.cfg['val_data_dir'] = val_data_dir
-
-        self.cfg['input_shape'] = input_shape
-        self.cfg['num_classes'] = num_classes
-
-        if class_weights is None:
-            class_weights = np.ones(num_classes)
-
-        self.cfg['class_weights'] = class_weights
-
-        # initialize model, optimizer and loss function
-        self.model = ResNet(input_size=self.cfg['input_shape'],
-                            num_out_classes=self.cfg['num_classes'])
-        self.model.cuda()
-
-        self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=init_lr)
-        self.loss_fn = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights).cuda())
-
-        if mode == 'start':
-            if len(os.listdir(self.cfg['checkpoint_dir'])) > 0:
-                raise Exception('Error! Output checkpoint dir (%s) not empty, which is incompatible with "%s" trainer mode'
-                                % (self.cfg['checkpoint_dir'], mode))
-        elif mode == 'resume':
-            if not len(os.listdir(self.cfg['checkpoint_dir'])):
-                raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" trainer mode instead')
-            self.load_last_checkpoint(self.cfg['checkpoint_dir'])
-        elif mode == 'test':
-            if not len(os.listdir(self.cfg['checkpoint_dir'])):
-                raise Exception('Error! Cannot load best checkpoint from an empty checkpoint dir.')
-            self.load_best_checkpoint(self.cfg['checkpoint_dir'])
-        elif mode == 'debug':
-            pass
-        else:
-            raise Exception('Error! Input trainer mode (%s) not available' % mode)
+        self.setup()
+        self.save_config(os.path.join(self.out_dir, 'trainer_cfg.json'))
 
     def train_on_batch(self, batch_data):
         self.optimizer.zero_grad()
@@ -80,7 +50,7 @@ class Trainer(TrainerBase):
         self.ep_train_mean_loss(batch_loss)  # update mean epoch loss metric
         self.prog_logger.log(batch_loss=batch_loss, mean_loss=self.ep_train_mean_loss.result())
 
-        if (self.state['train_step'] % self.cfg['log_interval']) == 0:
+        if (self.state['train_step'] % self.log_interval) == 0:
             log_data = [{'data': batch_loss, 'type': 'scalar', 'name': 'batch_loss'}]
             self.tb_logger.log(log_data, stage='train', step=self.state['train_step'])
 
@@ -100,45 +70,47 @@ class Trainer(TrainerBase):
 
         self.state['val_step'] += 1
 
-    def run(self):
-
-        if self.mode == 'debug':
-            num_dataloader_workers = 0
-        else:
-            num_dataloader_workers = cpu_count() - 2
-
-        # load train and validation datasets iterators
-        train_dataset = Dataset(data_dir=self.cfg['train_data_dir'], output_shape=self.cfg['input_shape'])
-        train_data_iterator = DataIterator(train_dataset, batch_size=self.cfg['batch_size'],
-                                           num_workers=num_dataloader_workers, shuffle=True)
-
-        val_dataset = Dataset(data_dir=self.cfg['val_data_dir'], output_shape=self.cfg['input_shape'])
-        val_data_iterator = DataIterator(val_dataset, batch_size=self.cfg['batch_size'],
-                                         num_workers=num_dataloader_workers, shuffle=True)
-
-        if self.cfg['train_steps_per_epoch'] <= 0:  # if train steps per epoch is <= 0, set it to cover the whole dataset
-            self.cfg['train_steps_per_epoch'] = len(train_dataset) // self.cfg['batch_size']
-
-        if self.cfg['val_steps_per_epoch'] <= 0:
-            self.cfg['val_steps_per_epoch'] = len(val_dataset) // self.cfg['batch_size']
-
-        self.tb_logger = TensorboardLogger(log_dir=os.path.join(self.cfg['log_dir'], 'tensorboard'))
+    def _init_metrics(self):
         self.ep_train_mean_loss = MeanMetric()
         self.ep_val_mean_loss = MeanMetric()
 
-        for ep in range(self.state['epoch'], self.cfg['max_epochs']):
+    def _reset_metrics(self):
+        self.ep_train_mean_loss.reset()
+        self.ep_val_mean_loss.reset()
+
+    def run(self):
+
+        num_dataloader_workers = 0 if self.trainer_mode == 'debug' else cpu_count() - 2
+
+        # load train and validation datasets iterators
+        train_dataset = Dataset(data_dir=self.cfg['train_data_dir'], output_shape=self.cfg['input_size'])
+        train_data_iterator = DataIterator(train_dataset, batch_size=self.batch_size,
+                                           num_workers=num_dataloader_workers, shuffle=True)
+
+        val_dataset = Dataset(data_dir=self.cfg['val_data_dir'], output_shape=self.cfg['input_size'])
+        val_data_iterator = DataIterator(val_dataset, batch_size=self.batch_size,
+                                         num_workers=num_dataloader_workers, shuffle=True)
+
+        if self.train_steps_per_epoch <= 0:  # if train steps per epoch is <= 0, set it to cover the whole dataset
+            self.train_steps_per_epoch = len(train_dataset) // self.batch_size
+
+        if self.val_steps_per_epoch <= 0:
+            self.val_steps_per_epoch = len(val_dataset) // self.batch_size
+
+        self.tb_logger = TensorboardLogger(log_dir=os.path.join(self.log_dir, 'tensorboard'))
+        self._init_metrics()
+        for ep in range(self.state['epoch'], self.max_epochs):
             print('\nEPOCH: %d' % ep)
             self.state['epoch'] = ep
 
-            self.ep_train_mean_loss.reset()
-            self.ep_val_mean_loss.reset()
+            self._reset_metrics()
 
             # TRAIN LOOP
             self.model.train()
             self.stage = 'train'
-            self.prog_logger = ProgressLogger(total_steps=self.cfg['train_steps_per_epoch'], description='Training')
+            self.prog_logger = ProgressLogger(total_steps=self.train_steps_per_epoch, description='Training')
 
-            for i in range(self.cfg['train_steps_per_epoch']):
+            for i in range(self.train_steps_per_epoch):
 
                 batch_data = next(train_data_iterator)
                 self.train_on_batch(batch_data)
@@ -153,10 +125,10 @@ class Trainer(TrainerBase):
             # VAL LOOP
             self.model.eval()
             self.stage = 'val'
-            self.prog_logger = ProgressLogger(total_steps=self.cfg['val_steps_per_epoch'], description='Validation')
+            self.prog_logger = ProgressLogger(total_steps=self.val_steps_per_epoch, description='Validation')
 
             with torch.no_grad():
-                for i in range(self.cfg['val_steps_per_epoch']):
+                for i in range(self.val_steps_per_epoch):
 
                     batch_data = next(val_data_iterator)
                     self.eval_on_batch(batch_data)
@@ -172,6 +144,3 @@ class Trainer(TrainerBase):
                 print('\tMean validation loss decreased from %f to %f. Saving best model' % (self.state['best_val_loss'], self.ep_val_mean_loss.result()))
                 self.state['best_val_loss'] = self.ep_val_mean_loss.result()
                 self.save_best_checkpoint()
-
-    def run_testing(self):
-        raise NotImplementedError()

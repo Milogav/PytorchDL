@@ -27,7 +27,7 @@ class Conv2dBlock(torch.nn.Module):
 
 class UNet(torch.nn.Module):
 
-    def __init__(self, input_channels, output_channels):
+    def __init__(self, input_channels, output_channels, **kwargs):
         super(UNet, self).__init__()
 
         self.cn1 = Conv2dBlock(input_channels, 32)
