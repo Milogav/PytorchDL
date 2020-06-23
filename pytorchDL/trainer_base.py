@@ -97,12 +97,12 @@ class TrainerBase:
             self.cfg = json.load(fp)
 
     def get_last_checkpoint(self):
-        info_last_ckpt = os.path.join(self.cfg['checkpoint_dir'], 'last_checkpoint.txt')
+        info_last_ckpt = os.path.join(self.checkpoint_dir, 'last_checkpoint.txt')
         try:
             with open(info_last_ckpt, 'r') as fp:
                 last_checkpoint_name = fp.read().strip()
         except FileNotFoundError:
-            print('"last_checkpoint.txt" not found in checkpoint directory: %s' % self.cfg['checkpoint_dir'])
+            print('"last_checkpoint.txt" not found in checkpoint directory: %s' % self.checkpoint_dir)
             last_checkpoint_name = None
 
         return last_checkpoint_name
