@@ -67,7 +67,7 @@ class ConfusionMatrixTopK(ConfusionMatrix):
         self.k = k
 
     def update(self, gt_labels, pred_probs):
-        topk = np.argsort(-pred_probs, axis=1)[0:self.k]
+        topk = np.argsort(-pred_probs, axis=1)[:, 0:self.k]
         for gt, top_preds in zip(gt_labels, topk):
             if gt in top_preds:
                 self.cm[gt, gt] += 1
