@@ -49,7 +49,7 @@ class TrainerBase:
         if self.trainer_mode == 'start':
             if len(os.listdir(self.checkpoint_dir)) > 0:
                 raise Exception('Error! Output checkpoint dir (%s) not empty, which is incompatible with "%s" trainer mode'
-                                % (self.cfg['checkpoint_dir'], self.trainer_mode))
+                                % (self.checkpoint_dir, self.trainer_mode))
         elif self.trainer_mode == 'resume':
             if not len(os.listdir(self.checkpoint_dir)):
                 raise Exception('Error! Cannot resume from an empty checkpoint dir. Use "start" trainer mode instead')
