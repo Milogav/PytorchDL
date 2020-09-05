@@ -1,0 +1,79 @@
+
+name: Release workflow
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  # build and publish package in PyPI
+  build-n-publish:
+    name: Build and publish python package to PyPI
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: Set up python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    
+    - name: Install wheel and twine
+      run: pip install setuptools wheel twine
+      
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.pypi_password }}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*
+
+  # Release tag
+  release-tag:
+    name: Release tag
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # avoid infinite loop on pushing tags to master
+    - name: Release tag
+      run: |
+        init_file="pytorchDL/__init__.py"
+        init_content=$(cat $init_file)
+        IFS="=" read -r -a split <<< "$init_content"
+        version_str=${split[1]//\"}
+
+        git config --global user.name 'Github action'
+        git config --global user.email 'github-action@github.com'
+        git tag $version_str
+        git push --tags
+        
+  # increase version in __init__ file and commit to dev branch
+  autoincrease-dev-version:
+    name: Autoincrease dev version
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: dev
+
+    - name: Auto increase dev version
+      run: |
+        init_file="pytorchDL/__init__.py"
+        init_content=$(cat $init_file)
+        IFS="=" read -r -a split <<< "$init_content"
+        version_str=${split[1]//\"}
+        IFS="." read -r -a version_numbers <<< "$version_str"
+        patch_version=${version_numbers[2]}
+        new_patch_version=$((patch_version+1))
+        version_numbers[2]=$new_patch_version
+        new_version_numbers=$(printf ".%s" "${version_numbers[@]}")
+        new_version_numbers=${new_version_numbers:2}
+        echo "__version__ = \"$new_version_numbers\"" > $init_file
+
+        git config --global user.name 'Github action'
+        git config --global user.email 'github-action@github.com'
+        git commit -am 'Auto-increase dev version'
+        git push
