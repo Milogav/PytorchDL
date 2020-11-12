@@ -24,14 +24,13 @@ class ConfusionMatrix:
     def __init__(self, num_classes, tags=None):
         self.num_classes = num_classes
         self.tags = tags if tags is not None else ['class_%d' % i for i in range(num_classes)]
-        self.cm = np.zeros((num_classes, num_classes))
+        self.cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
 
     def reset(self):
-        self.cm = np.zeros((self.num_classes, self.num_classes))
+        self.cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
 
     def update(self, gt_labels, pred_labels):
-        for gt, pred in zip(gt_labels, pred_labels):
-            self.cm[gt, pred] += 1
+        np.add.at(self.cm, (gt_labels, pred_labels), 1)
 
     def get_normalized(self):
         norm_conf_mat = self.cm / np.sum(self.cm, axis=1)[:, None]
@@ -49,9 +48,11 @@ class ConfusionMatrix:
 
         fmt = 'd' if np.issubdtype(cm.dtype, np.integer) else '.3f'
         plt.figure(figsize=(15, 15))
-        ax = sns.heatmap(cm, annot=True, xticklabels=self.tags, yticklabels=self.tags, fmt=fmt, cmap='Blues')
+        sns.set(font_scale=1.5)
+        ax = sns.heatmap(cm, annot=True, xticklabels=self.tags, yticklabels=self.tags, fmt=fmt, cmap='Blues', square=True, cbar=False)
         ax.set(xlabel='PREDICTED', ylabel='GROUND TRUTH')
         plt.title(title)
+        plt.tight_layout()
         if to_file is None:
             plt.show()
         else:
@@ -67,10 +68,10 @@ class ConfusionMatrixTopK(ConfusionMatrix):
         self.k = k
 
     def update(self, gt_labels, pred_probs):
-
         topk = np.argsort(-pred_probs, axis=1)[:, 0:self.k]
-        for gt, top_preds in zip(gt_labels, topk):
-            if gt in top_preds:
-                self.cm[gt, gt] += 1
-            else:
-                self.cm[gt, top_preds[0]] += 1
+
+        correct_mask = np.any((topk - gt_labels[:, None]) == 0, axis=1)
+        np.add.at(self.cm, (gt_labels[correct_mask], gt_labels[correct_mask]), 1)
+
+        error_mask = ~correct_mask
+        np.add.at(self.cm, (gt_labels[error_mask], topk[error_mask, 0]), 1)
