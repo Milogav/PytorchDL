@@ -1,8 +1,8 @@
-torch==1.5.0
-torchvision==0.6.0
-tqdm==4.46.1
-tensorboard==2.2.1
+torch>=1.5.0
+torchvision>=0.6.0
+tqdm>=4.46.1
+tensorboard>=2.2.1
 opencv-contrib-python>=4.1.2.30
 numpy>=1.18.5
-seaborn==0.10.1
-Pillow==7.1.2  # this is a dependency missing in pytorch for tensorboard utils
+seaborn>=0.10.1
+Pillow>=7.1.2  # this is a dependency missing in pytorch for tensorboard utils
